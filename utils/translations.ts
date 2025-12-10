@@ -224,6 +224,10 @@ export const translations: Record<string, Record<string, string>> = {
     'One number': 'One number',
     'One special char ($!@#_&)': 'One special char ($!@#_&)',
     'Password too weak': 'Password does not meet requirements',
+    'Already have a backup?': 'Already have a backup?',
+    'Restore Account from .kbf file': 'Restore Account from .kbf file',
+    'Import': 'Import',
+    'Account restored successfully!': 'Account restored successfully!',
 
     // Category View
     'records': 'records',
@@ -462,6 +466,10 @@ export const translations: Record<string, Record<string, string>> = {
     'One number': 'ஒரு எண்',
     'One special char ($!@#_&)': 'ஒரு சிறப்பு எழுத்து ($!@#_&)',
     'Password too weak': 'கடவுச்சொல் தேவைகளைப் பூர்த்தி செய்யவில்லை',
+    'Already have a backup?': 'ஏற்கனவே காப்புப் பிரதி உள்ளதா?',
+    'Restore Account from .kbf file': '.kbf கோப்பிலிருந்து மீட்டெடுக்கவும்',
+    'Import': 'இறக்குமதி',
+    'Account restored successfully!': 'கணக்கு வெற்றிகரமாக மீட்டெடுக்கப்பட்டது!',
 
     // Category View
     'records': 'பதிவுகள்',

@@ -46,6 +46,7 @@ interface DataContextType {
   backupData: () => Promise<void>;
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<boolean>;
+  restoreUserFromBackup: (file: File) => Promise<boolean>;
   isSyncAuthRequired: boolean;
   completeSyncAuth: () => void;
   cancelSyncAuth: () => void;
@@ -563,6 +564,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             version: '1.0',
             timestamp: Date.now()
         },
+        userProfile: userProfile, // Include full profile for restoration
         data: {
             expenses,
             incomes,
@@ -648,6 +650,65 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
   }
 
+  const restoreUserFromBackup = async (file: File): Promise<boolean> => {
+      return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+              try {
+                  const encryptedContent = e.target?.result as string;
+                  const decrypted = decryptData(encryptedContent);
+                  
+                  if (!decrypted || !decrypted.metadata || !decrypted.data || !decrypted.userProfile) {
+                      throw new Error("Invalid backup file or missing profile data.");
+                  }
+
+                  const { userProfile: restoredProfile, data } = decrypted;
+                  
+                  // Restore Profile in Encrypted Storage
+                  updateProfileState(restoredProfile);
+
+                  // Update Identity Map
+                  const identityMap = JSON.parse(localStorage.getItem(STORAGE_KEY_IDENTITY_MAP) || '{}');
+                  if (restoredProfile.mobile) identityMap[restoredProfile.mobile] = restoredProfile.id;
+                  if (restoredProfile.email) identityMap[restoredProfile.email] = restoredProfile.id;
+                  localStorage.setItem(STORAGE_KEY_IDENTITY_MAP, JSON.stringify(identityMap));
+                  
+                  // Set Current User
+                  localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, restoredProfile.id);
+
+                  // Restore Data State
+                  if (Array.isArray(data.expenses)) setExpenses(data.expenses);
+                  else setExpenses([]);
+                  
+                  if (Array.isArray(data.incomes)) setIncomes(data.incomes);
+                  else setIncomes([]);
+                  
+                  if (Array.isArray(data.budgets)) setBudgets(data.budgets);
+                  else setBudgets([]);
+                  
+                  // Persist immediately to storage keys
+                  localStorage.setItem(STORAGE_KEY_EXPENSES, JSON.stringify(data.expenses || []));
+                  localStorage.setItem(STORAGE_KEY_INCOMES, JSON.stringify(data.incomes || []));
+                  localStorage.setItem(STORAGE_KEY_BUDGETS, JSON.stringify(data.budgets || []));
+
+                  // Set App State
+                  setUserProfile(restoredProfile);
+                  setIsAuthenticated(true);
+                  setIsOnboardingComplete(true);
+                  sessionStorage.setItem(STORAGE_KEY_AUTH, 'true');
+
+                  resolve(true);
+              } catch (err: any) {
+                  console.error("Restore Error:", err);
+                  alert(err.message || "Failed to restore backup.");
+                  resolve(false);
+              }
+          };
+          reader.onerror = () => resolve(false);
+          reader.readAsText(file);
+      });
+  }
+
   const completeSyncAuth = () => {
     setIsSyncAuthRequired(false);
   };
@@ -695,6 +756,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       backupData,
       exportData,
       importData,
+      restoreUserFromBackup,
       isSyncAuthRequired,
       completeSyncAuth,
       cancelSyncAuth,
