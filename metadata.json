@@ -1,0 +1,5 @@
+{
+  "name": "Kanakkuvazhakku",
+  "description": "An AI-powered offline-first expense tracker and financial assistant using Google Gemini.",
+  "requestFramePermissions": []
+}
