@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { IncomeCategory, Recurrence } from '../types';

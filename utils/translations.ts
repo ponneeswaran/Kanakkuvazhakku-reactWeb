@@ -73,10 +73,8 @@ export const translations: Record<string, Record<string, string>> = {
     'Tap to view history': 'Tap to view history',
     'Daily': 'Daily',
     'Weekly': 'Weekly',
-    // Removed duplicate Monthly
     'Quarterly': 'Quarterly',
     'Half-Yearly': 'Half-Yearly',
-    // Removed duplicate Yearly
     'Custom Range': 'Custom Range',
     'No expenses found for this period': 'No expenses found for this period',
     'Select Range': 'Select Range',
@@ -315,10 +313,8 @@ export const translations: Record<string, Record<string, string>> = {
     'Tap to view history': 'வரலாற்றைக் காண தொடவும்',
     'Daily': 'தினசரி',
     'Weekly': 'வாராந்திர',
-    // Removed duplicate Monthly
     'Quarterly': 'காலாண்டு',
     'Half-Yearly': 'அரை ஆண்டு',
-    // Removed duplicate Yearly
     'Custom Range': 'தனிப்பயன் காலம்',
     'No expenses found for this period': 'இந்த காலத்தில் செலவுகள் இல்லை',
     'Select Range': 'காலத்தைத் தேர்ந்தெடுக்கவும்',
