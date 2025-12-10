@@ -88,6 +88,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }
             setError(t('User already exists'));
         }
     } else {
+        // Check if user exists first to give better error message
+        const userExists = checkUserExists(identifier);
+        if (!userExists) {
+            setError(t('User not found'));
+            return;
+        }
+
         // Attempt Login
         const success = await login(identifier, password);
         if (success) {
@@ -442,3 +449,4 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }
 };
 
 export default LoginScreen;
+
