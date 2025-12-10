@@ -1,7 +1,7 @@
 
 
-import React, { useState, useEffect } from 'react';
-import { Mail, ArrowRight, Smartphone, AlertCircle, Lock, ArrowLeft, CheckCircle2, Loader2, Fingerprint, User } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Mail, ArrowRight, Smartphone, AlertCircle, Lock, ArrowLeft, CheckCircle2, Loader2, Fingerprint, User, Upload } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import OTPScreen from './OTPScreen';
 import { sendOTPEmail } from '../services/emailService';
@@ -12,7 +12,7 @@ interface LoginScreenProps {
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }) => {
-  const { login, startSignup, checkUserExists, resetPassword, t, checkBiometricAvailability, verifyBiometricLogin } = useData();
+  const { login, startSignup, checkUserExists, resetPassword, t, checkBiometricAvailability, verifyBiometricLogin, restoreUserFromBackup } = useData();
   const [inputValue, setInputValue] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,6 +28,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
   const [canUseBiometric, setCanUseBiometric] = useState(false);
+
+  // Backup Restore State
+  const [isRestoring, setIsRestoring] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check biometric availability when input changes
   useEffect(() => {
@@ -181,6 +185,23 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }
       } else {
           setError('Failed to reset password');
       }
+  }
+
+  const handleRestoreClick = () => {
+    fileInputRef.current?.click();
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+        setIsRestoring(true);
+        const success = await restoreUserFromBackup(file);
+        if (success) {
+            // Success logic is handled by auth state change in context
+        }
+        setIsRestoring(false);
+        e.target.value = ''; 
+    }
   }
 
   // Render Forgot Input View (Mobile or Email)
@@ -355,6 +376,35 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }
             <p className="text-gray-500 dark:text-slate-400">{t('login_subtitle')}</p>
         </div>
 
+        {/* Restore Backup Option (Only for New Users/Create Account) */}
+        {isNewUser && (
+            <div className="mb-6 bg-teal-50 dark:bg-teal-900/10 border border-teal-100 dark:border-teal-800 rounded-xl p-4 flex items-center justify-between animate-fade-in">
+                <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-teal-100 dark:bg-teal-900/40 rounded-full text-teal-600 dark:text-teal-400">
+                        <Upload size={20} />
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-bold text-teal-900 dark:text-teal-100">{t('Already have a backup?')}</h3>
+                        <p className="text-xs text-teal-700 dark:text-teal-300">{t('Restore Account from .kbf file')}</p>
+                    </div>
+                </div>
+                <button 
+                    onClick={handleRestoreClick}
+                    disabled={isRestoring}
+                    className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center"
+                >
+                    {isRestoring ? <Loader2 size={14} className="animate-spin" /> : t('Import')}
+                </button>
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept=".kbf"
+                    onChange={handleFileChange}
+                />
+            </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
             <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">{t('Mobile Number or Email')}</label>
@@ -449,4 +499,3 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }
 };
 
 export default LoginScreen;
-

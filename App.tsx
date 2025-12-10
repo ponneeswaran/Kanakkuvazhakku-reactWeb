@@ -97,7 +97,10 @@ const AppContent: React.FC = () => {
                 onBack={() => setSelectedBudgetCategory(null)} 
             />
         ) : (
-            <BudgetView onCategorySelect={setSelectedBudgetCategory} />
+            <BudgetView 
+              onCategorySelect={setSelectedBudgetCategory} 
+              onBack={() => setCurrentTab('expenses')}
+            />
         )
       )}
 

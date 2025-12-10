@@ -2,13 +2,14 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Category, Budget } from '../types';
-import { Edit2, Save, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Edit2, Save, AlertTriangle, ChevronRight, ArrowLeft } from 'lucide-react';
 
 interface BudgetViewProps {
   onCategorySelect: (category: Category) => void;
+  onBack?: () => void;
 }
 
-const BudgetView: React.FC<BudgetViewProps> = ({ onCategorySelect }) => {
+const BudgetView: React.FC<BudgetViewProps> = ({ onCategorySelect, onBack }) => {
   const { expenses, budgets, setBudget, currency, t } = useData();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editAmount, setEditAmount] = useState('');
@@ -62,9 +63,19 @@ const BudgetView: React.FC<BudgetViewProps> = ({ onCategorySelect }) => {
   return (
     <div className="h-full flex flex-col animate-fade-in bg-gray-50 dark:bg-slate-900 transition-colors">
       <div className="shrink-0 p-6 pb-2 z-10 bg-gray-50 dark:bg-slate-900 transition-colors">
-        <header className="mb-4">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t('Monthly Budgets')}</h1>
-            <p className="text-sm text-gray-500 dark:text-slate-400">{t('Track your limits for this month')}</p>
+        <header className="mb-4 flex items-center space-x-3">
+            {onBack && (
+                <button 
+                onClick={onBack}
+                className="p-2 -ml-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300 transition-colors"
+                >
+                <ArrowLeft size={24} />
+                </button>
+            )}
+            <div>
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t('Monthly Budgets')}</h1>
+                <p className="text-sm text-gray-500 dark:text-slate-400">{t('Track your limits for this month')}</p>
+            </div>
         </header>
       </div>
 

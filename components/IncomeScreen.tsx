@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Income } from '../types';
 import { CheckCircle, Clock, AlertTriangle, Phone, MessageCircle, Trash2 } from 'lucide-react';
@@ -14,8 +15,28 @@ interface IncomeCardProps {
 }
 
 const IncomeCard: React.FC<IncomeCardProps> = ({ income, currency, t, onFollowUp, onMarkReceived, onDelete }) => {
-    const isOverdue = income.status === 'Overdue';
+    const today = new Date().toISOString().split('T')[0];
+    // Safety check: Don't show Overdue if date is in the future, regardless of status data
+    const isOverdue = income.status === 'Overdue' && income.date < today;
+
+    // Check if income is in the future (tomorrow or later) to prompt confirmation
+    const isFuturePayment = useMemo(() => {
+        return income.status === 'Expected' && income.date > today;
+    }, [income.date, income.status, today]);
     
+    const handleReceiveClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+
+        // If it's a future date, require confirmation
+        if (isFuturePayment) {
+             if(confirm(t('confirm_mark_received'))) {
+                 onMarkReceived(income.id);
+             }
+        } else {
+             onMarkReceived(income.id);
+        }
+    }
+
     return (
         <div className={`bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border ${isOverdue ? 'border-red-400 dark:border-red-900 ring-1 ring-red-100 dark:ring-red-900/30' : 'border-gray-100 dark:border-slate-700'} relative transition-all`}>
             <div className="flex justify-between items-start mb-2">
@@ -55,7 +76,7 @@ const IncomeCard: React.FC<IncomeCardProps> = ({ income, currency, t, onFollowUp
                     <>
                         {income.category === 'Rent' && isOverdue && (
                             <button 
-                                onClick={() => onFollowUp(income)}
+                                onClick={(e) => { e.stopPropagation(); onFollowUp(income); }}
                                 className="flex items-center space-x-1 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-xs font-semibold"
                             >
                                 <AlertTriangle size={12} />
@@ -63,8 +84,12 @@ const IncomeCard: React.FC<IncomeCardProps> = ({ income, currency, t, onFollowUp
                             </button>
                         )}
                         <button 
-                            onClick={() => onMarkReceived(income.id)}
-                            className="flex items-center space-x-1 px-3 py-1.5 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 rounded-lg text-xs font-semibold"
+                            onClick={handleReceiveClick}
+                            className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                                isFuturePayment
+                                    ? 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300' 
+                                    : 'bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400'
+                            }`}
                         >
                             <CheckCircle size={12} />
                             <span>{t('Mark Received')}</span>
@@ -77,12 +102,15 @@ const IncomeCard: React.FC<IncomeCardProps> = ({ income, currency, t, onFollowUp
                     </span>
                 )}
                  <button 
-                    onClick={() => {
-                        if(confirm(t('Delete this income entry?'))) onDelete(income.id);
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if(confirm(t('Delete this income entry?'))) {
+                            onDelete(income.id);
+                        }
                     }}
-                    className="p-1.5 text-gray-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors"
+                    className="p-2 text-gray-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors rounded-full hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
-                    <Trash2 size={14} />
+                    <Trash2 size={16} />
                 </button>
             </div>
         </div>
@@ -93,9 +121,14 @@ const IncomeScreen: React.FC = () => {
   const { incomes, markIncomeReceived, deleteIncome, currency, t } = useData();
   const [followUpItem, setFollowUpItem] = useState<Income | null>(null);
 
+  const today = new Date().toISOString().split('T')[0];
+
   // Group by status
-  const overdueIncomes = incomes.filter(i => i.status === 'Overdue');
-  const expectedIncomes = incomes.filter(i => i.status === 'Expected').sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  // Only classify as Overdue if status says Overdue AND date is actually in the past
+  const overdueIncomes = incomes.filter(i => i.status === 'Overdue' && i.date < today);
+  
+  // Include Expected, and any Overdue that are actually in future (data correction visual only)
+  const expectedIncomes = incomes.filter(i => i.status === 'Expected' || (i.status === 'Overdue' && i.date >= today)).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const handleWhatsAppReminder = (income: Income) => {
       if (!income.tenantContact) {

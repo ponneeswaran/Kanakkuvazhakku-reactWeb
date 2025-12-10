@@ -1,5 +1,8 @@
 
 
+
+
+
 export const translations: Record<string, Record<string, string>> = {
   en: {
     // General
@@ -51,6 +54,7 @@ export const translations: Record<string, Record<string, string>> = {
     'Mark as Received': 'Mark as Received',
     'Delete this income entry?': 'Delete this income entry?',
     'Tenant Mobile (for reminders)': 'Tenant Mobile (for reminders)',
+    'confirm_mark_received': 'This income is not due yet. Are you sure you want to mark it as received now?',
 
     // Layout
     'Home': 'Home',
@@ -295,6 +299,7 @@ export const translations: Record<string, Record<string, string>> = {
     'Tenant Mobile (for reminders)': 'வாடகைதாரர் மொபைல் (நினைவூட்டலுக்கு)',
     'Net Balance': 'நிகர இருப்பு',
     'Expense': 'செலவு',
+    'confirm_mark_received': 'இந்த வருமானத்திற்கு இன்னும் நாள் உள்ளது. இப்போதே பெற்றதாக குறிக்கவா?',
 
     // Layout
     'Home': 'முகப்பு',

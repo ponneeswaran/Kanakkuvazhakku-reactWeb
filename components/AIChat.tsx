@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { chatWithFinancialAssistant } from '../services/geminiService';
@@ -6,7 +5,7 @@ import { ChatMessage, Category } from '../types';
 import { Send, Bot, Loader2 } from 'lucide-react';
 
 const AIChat: React.FC = () => {
-  const { expenses, budgets, incomes, currency, userName, addExpense, t, chatHistory, addChatMessage } = useData();
+  const { expenses, budgets, incomes, currency, userName, addExpense, addIncome, deleteExpense, deleteIncome, t, chatHistory, addChatMessage } = useData();
   
   // Use a ref to track if we've initialized the welcome message to prevent double-posting
   const hasInitialized = useRef(false);
@@ -55,6 +54,54 @@ const AIChat: React.FC = () => {
       });
   };
 
+  const handleAddIncomeTool = (args: any) => {
+      const amount = parseFloat(args.amount);
+      if (isNaN(amount)) throw new Error("Invalid Amount");
+
+      const category = args.category as any || 'Salary';
+      const source = args.source || 'Income from AI';
+      const date = args.date || new Date().toISOString().split('T')[0];
+      const recurrence = args.recurrence || 'None';
+
+      addIncome({
+          amount,
+          category,
+          source,
+          date,
+          recurrence
+      });
+  };
+
+  const handleDeleteTransactionTool = async (type: 'expense' | 'income', id?: string): Promise<string> => {
+      let targetId = id;
+      
+      // If AI didn't provide ID (e.g. passed empty string), try to find the last one (most recently created)
+      if (!targetId) {
+          if (type === 'expense' && expenses.length > 0) {
+              const sorted = [...expenses].sort((a,b) => b.createdAt - a.createdAt);
+              targetId = sorted[0].id;
+          } else if (type === 'income' && incomes.length > 0) {
+              const sorted = [...incomes].sort((a,b) => b.createdAt - a.createdAt);
+              targetId = sorted[0].id;
+          }
+      }
+
+      if (!targetId) return `No ${type} found to delete.`;
+
+      const expense = expenses.find(e => e.id === targetId);
+      const income = incomes.find(i => i.id === targetId);
+
+      if (type === 'expense' && expense) {
+          deleteExpense(targetId);
+          return `Successfully deleted expense: ${expense.description} (${currency}${expense.amount})`;
+      } else if (type === 'income' && income) {
+          deleteIncome(targetId);
+          return `Successfully deleted income: ${income.source} (${currency}${income.amount})`;
+      }
+
+      return `Could not find transaction with ID ${targetId}`;
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isThinking) return;
 
@@ -74,7 +121,9 @@ const AIChat: React.FC = () => {
         userMessage.text,
         chatHistory, // Pass current history state (which doesn't include userMessage yet due to async state update)
         { expenses, budgets, currency, incomes, userName },
-        handleAddExpenseTool // Pass tool handler
+        handleAddExpenseTool, // Pass expense tool handler
+        handleAddIncomeTool, // Pass income tool handler
+        handleDeleteTransactionTool // Pass delete tool handler
       );
 
       const aiMessage: ChatMessage = {

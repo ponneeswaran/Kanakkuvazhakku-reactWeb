@@ -1,11 +1,11 @@
 
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { User, Mail, Phone, Globe, DollarSign, Check, ChevronRight, Lock, Upload, Loader2 } from 'lucide-react';
+import { User, Mail, Phone, Globe, DollarSign, Check, ChevronRight, Lock } from 'lucide-react';
 
 const OnboardingScreen: React.FC = () => {
-  const { loginIdentifier, completeOnboarding, restoreUserFromBackup, t } = useData();
+  const { loginIdentifier, completeOnboarding, t } = useData();
   
   // Detect if identifier is email or phone for auto-fill
   const isEmailLogin = loginIdentifier.includes('@');
@@ -19,9 +19,6 @@ const OnboardingScreen: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showTooltip, setShowTooltip] = useState(false);
   
-  const [isRestoring, setIsRestoring] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [errors, setErrors] = useState<{name?: string, mobile?: string, email?: string, password?: string, confirmPassword?: string}>({});
 
   // Password Requirements Logic
@@ -72,56 +69,12 @@ const OnboardingScreen: React.FC = () => {
     }
   };
 
-  const handleRestoreClick = () => {
-      fileInputRef.current?.click();
-  }
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-          setIsRestoring(true);
-          const success = await restoreUserFromBackup(file);
-          if (success) {
-              alert(t('Account restored successfully!'));
-          }
-          setIsRestoring(false);
-          e.target.value = ''; // Reset
-      }
-  }
-
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900 flex flex-col p-6 animate-fade-in transition-colors">
       <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full py-10">
         <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{t('Create Your Account')}</h1>
             <p className="text-gray-500 dark:text-slate-400">{t('onboarding_subtitle')}</p>
-        </div>
-
-        {/* Restore Backup Option */}
-        <div className="mb-8 bg-teal-50 dark:bg-teal-900/10 border border-teal-100 dark:border-teal-800 rounded-xl p-4 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-                <div className="p-2 bg-teal-100 dark:bg-teal-900/40 rounded-full text-teal-600 dark:text-teal-400">
-                    <Upload size={20} />
-                </div>
-                <div>
-                    <h3 className="text-sm font-bold text-teal-900 dark:text-teal-100">{t('Already have a backup?')}</h3>
-                    <p className="text-xs text-teal-700 dark:text-teal-300">{t('Restore Account from .kbf file')}</p>
-                </div>
-            </div>
-            <button 
-                onClick={handleRestoreClick}
-                disabled={isRestoring}
-                className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center"
-            >
-                {isRestoring ? <Loader2 size={14} className="animate-spin" /> : t('Import')}
-            </button>
-            <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept=".kbf"
-                onChange={handleFileChange}
-            />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

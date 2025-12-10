@@ -1,5 +1,3 @@
-
-
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { UserContext, ChatMessage } from "../types";
 
@@ -118,22 +116,69 @@ const addExpenseTool: FunctionDeclaration = {
   }
 };
 
+const addIncomeTool: FunctionDeclaration = {
+  name: "add_income",
+  description: "Add a new income source or scheduled income (like Salary, Rent) to the tracking system.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      amount: { type: Type.NUMBER, description: "Numeric amount of the income." },
+      category: { 
+        type: Type.STRING, 
+        enum: ['Salary', 'Rent', 'Interest', 'Business', 'Gift', 'Other'],
+        description: "Category of the income." 
+      },
+      source: { type: Type.STRING, description: "Source of the income (e.g., Employer Name, Tenant Name)." },
+      date: { type: Type.STRING, description: "Date of income receipt or due date in YYYY-MM-DD format." },
+      recurrence: {
+          type: Type.STRING,
+          enum: ['None', 'Monthly', 'Yearly'],
+          description: "How often this income repeats."
+      }
+    },
+    required: ["amount", "category", "source"]
+  }
+};
+
+const deleteTransactionTool: FunctionDeclaration = {
+  name: "delete_transaction",
+  description: "Delete a specific expense or income transaction. Always confirm with the user (e.g. 'Are you sure you want to delete the expense for Coffee?') before calling this tool, unless the user's request is an explicit command like 'Yes, delete it'.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      type: {
+        type: Type.STRING,
+        enum: ['expense', 'income'],
+        description: "The type of transaction to delete."
+      },
+      id: {
+        type: Type.STRING,
+        description: "The ID of the transaction to delete. If the user says 'last expense' or 'last income', leave this blank or try to find the ID from context."
+      }
+    },
+    required: ["type"]
+  }
+};
+
 export const chatWithFinancialAssistant = async (
   message: string, 
   history: ChatMessage[], 
   context: UserContext,
-  onAddExpense?: (expense: any) => void
+  onAddExpense?: (expense: any) => void,
+  onAddIncome?: (income: any) => void,
+  onDeleteTransaction?: (type: 'expense' | 'income', id?: string) => Promise<string>
 ): Promise<string> => {
   if (!apiKey) return "Please set your Google Gemini API Key to chat.";
 
   try {
     // Prepare a summarized context to avoid hitting token limits with large datasets
+    // Sort by createdAt desc to effectively get "last added"
     const recentExpenses = context.expenses
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, 30);
     
     const recentIncomes = (context.incomes || [])
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, 10);
 
     const today = new Date().toISOString().split('T')[0];
@@ -142,8 +187,8 @@ export const chatWithFinancialAssistant = async (
       summary: "User's recent financial data",
       currency: context.currency,
       budgets: context.budgets,
-      recentTransactions: recentExpenses,
-      recentIncomes: recentIncomes,
+      recentTransactions: recentExpenses.map(e => ({ id: e.id, description: e.description, amount: e.amount, date: e.date, category: e.category })),
+      recentIncomes: recentIncomes.map(i => ({ id: i.id, source: i.source, amount: i.amount, date: i.date, category: i.category })),
       currentDate: today
     };
 
@@ -155,18 +200,32 @@ export const chatWithFinancialAssistant = async (
     1. Answer questions about their spending and income habits.
     2. Provide advice on budgeting and rent collection.
     3. Help add expenses using the 'add_expense' tool.
-    4. Be concise and mobile-friendly.
+    4. Help add income or scheduled earnings (salary, rent) using the 'add_income' tool.
+    5. Help delete transactions using 'delete_transaction' tool.
+       CRITICAL: Before deleting, you MUST verify with the user.
+       Example: User: "Delete the coffee expense." -> You: "I found an expense for Coffee for $5 on 2024-10-20. Are you sure you want to delete it?"
+       Only call 'delete_transaction' after the user confirms.
+       
+       If user says "Delete last expense", look at 'recentTransactions' (index 0 is the latest).
+       
+    6. Be concise and mobile-friendly.
     
     Current User Context:
     ${JSON.stringify(contextData, null, 2)}
     `;
+
+    // Construct tools array based on available callbacks
+    const functionDeclarations: FunctionDeclaration[] = [];
+    if (onAddExpense) functionDeclarations.push(addExpenseTool);
+    if (onAddIncome) functionDeclarations.push(addIncomeTool);
+    if (onDeleteTransaction) functionDeclarations.push(deleteTransactionTool);
 
     // Convert history to Gemini format
     const chat = ai.chats.create({
       model: MODEL_NAME,
       config: {
         systemInstruction: systemInstruction,
-        tools: onAddExpense ? [{functionDeclarations: [addExpenseTool]}] : undefined
+        tools: functionDeclarations.length > 0 ? [{functionDeclarations}] : undefined
       },
       history: history.filter(h => !h.isThinking && h.text).map(h => ({
         role: h.role,
@@ -178,33 +237,44 @@ export const chatWithFinancialAssistant = async (
     
     // Check for function calls
     const functionCalls = result.functionCalls;
-    if (functionCalls && functionCalls.length > 0 && onAddExpense) {
+    if (functionCalls && functionCalls.length > 0) {
         const call = functionCalls[0];
-        if (call.name === 'add_expense') {
-            try {
+        let functionResult = "";
+        
+        try {
+            if (call.name === 'add_expense' && onAddExpense) {
                 // Execute action on client side
                 onAddExpense(call.args);
-                
-                // Send success response back to model to get final text
-                const functionResponsePart = {
-                    functionResponse: {
-                        name: call.name,
-                        response: { result: "Expense added successfully." },
-                        id: call.id
-                    }
-                };
-                
-                result = await chat.sendMessage({ message: [functionResponsePart] });
-            } catch (error) {
-                 const functionResponsePart = {
-                    functionResponse: {
-                        name: call.name,
-                        response: { result: "Error adding expense." },
-                        id: call.id
-                    }
-                };
-                result = await chat.sendMessage({ message: [functionResponsePart] });
+                functionResult = "Expense added successfully.";
+            } else if (call.name === 'add_income' && onAddIncome) {
+                // Execute action on client side
+                onAddIncome(call.args);
+                functionResult = "Income added successfully.";
+            } else if (call.name === 'delete_transaction' && onDeleteTransaction) {
+                functionResult = await onDeleteTransaction(call.args.type as any, call.args.id as any);
+            } else {
+                functionResult = "Tool not available.";
             }
+
+            // Send success response back to model to get final text
+            const functionResponsePart = {
+                functionResponse: {
+                    name: call.name,
+                    response: { result: functionResult },
+                    id: call.id
+                }
+            };
+            
+            result = await chat.sendMessage({ message: [functionResponsePart] });
+        } catch (error) {
+             const functionResponsePart = {
+                functionResponse: {
+                    name: call.name,
+                    response: { result: "Error executing operation." },
+                    id: call.id
+                }
+            };
+            result = await chat.sendMessage({ message: [functionResponsePart] });
         }
     }
     

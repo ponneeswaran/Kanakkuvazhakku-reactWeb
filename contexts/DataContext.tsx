@@ -72,6 +72,22 @@ const STORAGE_KEY_CURRENT_USER_ID = 'kanakku_current_user_id';
 // Default budgets removed for new users as requested
 const DEFAULT_BUDGETS: Budget[] = [];
 
+// Helper to calculate next recurring date safely
+const getNextDate = (dateStr: string, recurrence: string): string => {
+    const d = new Date(dateStr);
+    if (recurrence === 'Monthly') {
+        const currentMonth = d.getMonth();
+        d.setMonth(currentMonth + 1);
+        // Handle month end overflow (e.g. Jan 31 -> Feb 28/29)
+        if (d.getMonth() !== (currentMonth + 1) % 12) {
+             d.setDate(0); // Set to last day of previous month
+        }
+    } else if (recurrence === 'Yearly') {
+        d.setFullYear(d.getFullYear() + 1);
+    }
+    return d.toISOString().split('T')[0];
+};
+
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
@@ -117,16 +133,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (storedIncomes) {
       let parsedIncomes: Income[] = JSON.parse(storedIncomes);
-      // Check for overdue items on load
       const today = new Date().toISOString().split('T')[0];
       let hasChanges = false;
+      
       parsedIncomes = parsedIncomes.map(inc => {
+        // Fix 1: Mark overdue if expected and date is past
         if (inc.status === 'Expected' && inc.date < today) {
            hasChanges = true;
            return { ...inc, status: 'Overdue' };
         }
+        // Fix 2: Self-heal incorrect 'Overdue' status for future dates
+        if (inc.status === 'Overdue' && inc.date >= today) {
+           hasChanges = true;
+           return { ...inc, status: 'Expected' };
+        }
         return inc;
       });
+
       setIncomes(parsedIncomes);
       if(hasChanges) {
           localStorage.setItem(STORAGE_KEY_INCOMES, JSON.stringify(parsedIncomes));
@@ -223,13 +246,41 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Income Methods
   const addIncome = (income: Omit<Income, 'id' | 'createdAt' | 'status'>) => {
       const today = new Date().toISOString().split('T')[0];
-      const newIncome: Income = {
+      
+      // Determine if the user is entering a past income (Received) or future (Expected)
+      const isPast = income.date <= today;
+
+      // 1. Create the primary entry based on user input
+      const mainStatus: IncomeStatus = isPast ? 'Received' : 'Expected';
+      const mainEntry: Income = {
           ...income,
           id: crypto.randomUUID(),
           createdAt: Date.now(),
-          status: income.date < today ? 'Overdue' : 'Expected'
+          status: mainStatus
       };
-      setIncomes(prev => [newIncome, ...prev]);
+
+      const newEntries = [mainEntry];
+
+      // 2. Intelligence: If user enters a PAST income that is RECURRING,
+      //    we should immediately generate the NEXT upcoming income entry.
+      //    This solves the issue where entering "Last Month's Salary" doesn't show "This Month's Salary" as upcoming.
+      if (isPast && income.recurrence !== 'None') {
+          const nextDateStr = getNextDate(income.date, income.recurrence);
+          
+          // Determine status of next entry (Overdue if date is strictly before today)
+          const nextStatus: IncomeStatus = nextDateStr < today ? 'Overdue' : 'Expected';
+
+          const nextEntry: Income = {
+              ...income,
+              id: crypto.randomUUID(),
+              createdAt: Date.now() + 1, // Ensure it appears "after" the main entry in default sorts
+              date: nextDateStr,
+              status: nextStatus
+          };
+          newEntries.push(nextEntry);
+      }
+
+      setIncomes(prev => [...newEntries, ...prev]);
   };
 
   const deleteIncome = (id: string) => {
@@ -242,27 +293,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (!income) return prev;
 
           // 1. Mark current as Received
-          const updatedIncome = { ...income, status: 'Received' as IncomeStatus, date: new Date().toISOString().split('T')[0] }; // Update date to today effectively
+          // Note: We update the date to "Today" to reflect actual cash flow, 
+          // but we use the ORIGINAL date for calculating the next recurrence interval to avoid drift.
+          const originalDateStr = income.date;
+          const updatedIncome = { 
+              ...income, 
+              status: 'Received' as IncomeStatus, 
+              date: new Date().toISOString().split('T')[0] 
+          }; 
+          
           const others = prev.filter(i => i.id !== id);
           
           let nextIncome: Income | null = null;
 
           // 2. Generate Next Recurrence if needed
           if (income.recurrence !== 'None') {
-              const currentDate = new Date(income.date); // Use original due date for calculation
-              let nextDate = new Date(currentDate);
-
-              if (income.recurrence === 'Monthly') {
-                  nextDate.setMonth(nextDate.getMonth() + 1);
-              } else if (income.recurrence === 'Yearly') {
-                  nextDate.setFullYear(nextDate.getFullYear() + 1);
-              }
+              const nextDateStr = getNextDate(originalDateStr, income.recurrence);
+              const today = new Date().toISOString().split('T')[0];
 
               nextIncome = {
                   ...income,
                   id: crypto.randomUUID(),
-                  date: nextDate.toISOString().split('T')[0],
-                  status: 'Expected',
+                  date: nextDateStr,
+                  status: nextDateStr < today ? 'Overdue' : 'Expected',
                   createdAt: Date.now()
               };
           }

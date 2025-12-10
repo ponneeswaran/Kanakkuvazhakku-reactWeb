@@ -95,9 +95,12 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({ item, currency, onDelete,
   return (
     <div className="relative overflow-hidden rounded-xl mb-3 select-none">
       <div 
-        className="absolute inset-y-0 right-0 bg-red-500 flex items-center justify-center rounded-r-xl"
+        className="absolute inset-y-0 right-0 bg-red-500 flex items-center justify-center rounded-r-xl cursor-pointer"
         style={{ width: `${DELETE_BTN_WIDTH}px` }}
-        onClick={() => onDelete(item.id, item.type)}
+        onClick={(e) => {
+            e.stopPropagation();
+            onDelete(item.id, item.type);
+        }}
       >
         <Trash2 className="text-white" size={20} />
       </div>
@@ -253,13 +256,10 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ initialCategory = 'All', onNa
             deleteExpense(id);
         }
     } else {
-        const item = incomes.find(i => i.id === id);
-        if (item) {
-             if (confirm("Delete this income record?")) {
-                 deleteIncome(id);
-             }
-             return; 
-        }
+         if (confirm(t("Delete this income entry?"))) {
+             deleteIncome(id);
+         }
+         return; 
     }
 
     if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
@@ -383,7 +383,6 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ initialCategory = 'All', onNa
                         className="bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 px-4 py-2 rounded-lg text-sm font-bold flex items-center space-x-1"
                     >
                         <span>{t('Budget')}</span>
-                        <ArrowRight size={16} />
                     </button>
                 )}
             </header>
