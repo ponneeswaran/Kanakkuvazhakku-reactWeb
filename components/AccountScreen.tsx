@@ -109,7 +109,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onBack, onNavigateToProfi
           if (success) {
               alert(t('biometric_reg_success'));
           } else {
-             // Error alert handled in context usually, but extra check here
+             alert(t('biometric_reg_failed'));
           }
       }
   }
