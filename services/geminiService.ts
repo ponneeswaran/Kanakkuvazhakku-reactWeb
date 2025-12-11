@@ -50,7 +50,16 @@ export const parseExpenseFromText = async (text: string): Promise<any> => {
 
     const response = await ai.models.generateContent({
         model: MODEL_NAME,
-        contents: `Extract expense details from this text: "${text}". Today's date is ${today}. Return JSON.`,
+        contents: `
+        Today is ${today} (YYYY-MM-DD).
+        Extract expense details from the following text: "${text}".
+        
+        Rules:
+        1. Resolve relative dates like "today", "yesterday", "last friday" based on today's date (${today}).
+        2. If no date is mentioned, use today's date (${today}).
+        3. If no payment method is mentioned, use 'UPI' as default.
+        4. Infer category from description if not explicit.
+        `,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -59,10 +68,10 @@ export const parseExpenseFromText = async (text: string): Promise<any> => {
                     amount: { type: Type.NUMBER },
                     category: { type: Type.STRING, enum: ['Food', 'Transport', 'Entertainment', 'Utilities', 'Healthcare', 'Shopping', 'Housing', 'Other'] },
                     description: { type: Type.STRING },
-                    date: { type: Type.STRING, description: "YYYY-MM-DD format. Use today if not specified." },
+                    date: { type: Type.STRING, description: "YYYY-MM-DD format." },
                     paymentMethod: { type: Type.STRING, enum: ['Cash', 'Card', 'UPI', 'Other'] }
                 },
-                required: ['amount', 'category', 'description']
+                required: ['amount', 'category', 'description', 'date', 'paymentMethod']
             }
         }
     });
@@ -77,7 +86,15 @@ export const parseIncomeFromText = async (text: string): Promise<any> => {
 
     const response = await ai.models.generateContent({
         model: MODEL_NAME,
-        contents: `Extract income details from this text: "${text}". Today's date is ${today}. Return JSON.`,
+        contents: `
+        Today is ${today} (YYYY-MM-DD).
+        Extract income details from the following text: "${text}".
+        
+        Rules:
+        1. Resolve relative dates like "today", "yesterday" based on today's date (${today}).
+        2. If no date is mentioned, use today's date (${today}).
+        3. Infer category from source if not explicit.
+        `,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -86,9 +103,9 @@ export const parseIncomeFromText = async (text: string): Promise<any> => {
                     amount: { type: Type.NUMBER },
                     category: { type: Type.STRING, enum: ['Salary', 'Rent', 'Interest', 'Business', 'Gift', 'Other'] },
                     source: { type: Type.STRING },
-                    date: { type: Type.STRING, description: "YYYY-MM-DD format. Use today if not specified." }
+                    date: { type: Type.STRING, description: "YYYY-MM-DD format." }
                 },
-                required: ['amount', 'category', 'source']
+                required: ['amount', 'category', 'source', 'date']
             }
         }
     });
