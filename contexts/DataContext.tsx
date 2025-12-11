@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Expense, Budget, Category, UserContext, UserProfile, ChatMessage, Income, IncomeCategory, IncomeStatus } from '../types';
+import { Expense, Budget, Category, UserContext, UserProfile, ChatMessage, Income, IncomeCategory, IncomeStatus, LocalBackup } from '../types';
 import { t } from '../utils/translations';
 import { encryptData, decryptData } from '../utils/security';
 import { sendBackupEmail, sendExportEmail } from '../services/emailService';
@@ -46,7 +46,7 @@ interface DataContextType {
   backupData: () => Promise<void>;
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<boolean>;
-  restoreUserFromBackup: (file: File) => Promise<boolean>;
+  restoreUserFromBackup: (file: File | string) => Promise<boolean>;
   isSyncAuthRequired: boolean;
   completeSyncAuth: () => void;
   cancelSyncAuth: () => void;
@@ -55,6 +55,8 @@ interface DataContextType {
   checkBiometricAvailability: (identifier: string) => boolean;
   isBiometricSupported: boolean;
   updateProfileState: (profile: UserProfile) => void;
+  getLocalBackups: () => LocalBackup[];
+  deleteLocalBackup: (id: string) => void;
   loadDemoData: () => void;
 }
 
@@ -69,6 +71,7 @@ const STORAGE_KEY_AUTH = 'kanakku_is_authenticated';
 const STORAGE_KEY_IDENTITY_MAP = 'kanakku_identity_map'; // Maps identifier -> userId
 const STORAGE_KEY_PROFILES_ENCRYPTED = 'kanakku_profiles_encrypted'; // Maps userId -> Encrypted UserProfile
 const STORAGE_KEY_CURRENT_USER_ID = 'kanakku_current_user_id';
+const STORAGE_KEY_LOCAL_BACKUPS = 'kanakku_local_backups';
 
 // Default budgets removed for new users as requested
 const DEFAULT_BUDGETS: Budget[] = [];
@@ -630,6 +633,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // --- Backup / Export / Import ---
 
+  const getLocalBackups = (): LocalBackup[] => {
+      try {
+          const stored = localStorage.getItem(STORAGE_KEY_LOCAL_BACKUPS);
+          if (stored) return JSON.parse(stored);
+      } catch (e) {
+          console.error("Error reading local backups", e);
+      }
+      return [];
+  };
+
+  const deleteLocalBackup = (id: string) => {
+      const backups = getLocalBackups();
+      const updated = backups.filter(b => b.id !== id);
+      localStorage.setItem(STORAGE_KEY_LOCAL_BACKUPS, JSON.stringify(updated));
+  };
+
   const backupData = async () => {
     if (!userProfile?.email) {
         alert("Email is required for backups.");
@@ -652,6 +671,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const encryptedBackup = encryptData(backupPayload);
+
+    // 1. Save locally as well (Internal Backup)
+    try {
+        const backups = getLocalBackups();
+        const newBackup: LocalBackup = {
+            id: Date.now().toString(),
+            date: new Date().toISOString(),
+            userName: userProfile.name,
+            content: encryptedBackup,
+            size: encryptedBackup.length
+        };
+        // Keep only last 3 backups to prevent LS overflow
+        const updatedBackups = [newBackup, ...backups].slice(0, 3);
+        localStorage.setItem(STORAGE_KEY_LOCAL_BACKUPS, JSON.stringify(updatedBackups));
+    } catch (e) {
+        console.warn("Could not save local backup due to storage limits.", e);
+    }
+
+    // 2. Trigger Email/Download
     await sendBackupEmail(userProfile.email, encryptedBackup);
   };
 
@@ -729,70 +767,78 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
   }
 
-  const restoreUserFromBackup = async (file: File): Promise<boolean> => {
-      return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-              try {
-                  const encryptedContent = e.target?.result as string;
-                  const decrypted = decryptData(encryptedContent);
-                  
-                  if (!decrypted || !decrypted.metadata || !decrypted.data || !decrypted.userProfile) {
-                      throw new Error("Invalid backup file or missing profile data.");
-                  }
-
-                  const { userProfile: restoredProfile, data } = decrypted;
-                  
-                  // Restore Profile in Encrypted Storage
-                  updateProfileState(restoredProfile);
-
-                  // Update Identity Map
-                  const identityMap = JSON.parse(localStorage.getItem(STORAGE_KEY_IDENTITY_MAP) || '{}');
-                  if (restoredProfile.mobile) identityMap[restoredProfile.mobile] = restoredProfile.id;
-                  if (restoredProfile.email) identityMap[restoredProfile.email] = restoredProfile.id;
-                  localStorage.setItem(STORAGE_KEY_IDENTITY_MAP, JSON.stringify(identityMap));
-                  
-                  // Set Current User
-                  localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, restoredProfile.id);
-
-                  // Restore Data State
-                  if (Array.isArray(data.expenses)) setExpenses(data.expenses);
-                  else setExpenses([]);
-                  
-                  if (Array.isArray(data.incomes)) setIncomes(data.incomes);
-                  else setIncomes([]);
-                  
-                  if (Array.isArray(data.budgets)) setBudgets(data.budgets);
-                  else setBudgets([]);
-                  
-                  // Persist immediately to storage keys
-                  localStorage.setItem(STORAGE_KEY_EXPENSES, JSON.stringify(data.expenses || []));
-                  localStorage.setItem(STORAGE_KEY_INCOMES, JSON.stringify(data.incomes || []));
-                  localStorage.setItem(STORAGE_KEY_BUDGETS, JSON.stringify(data.budgets || []));
-
-                  // Set App State
-                  setUserProfile(restoredProfile);
-                  setIsAuthenticated(true);
-                  setIsOnboardingComplete(true);
-                  sessionStorage.setItem(STORAGE_KEY_AUTH, 'true');
-
-                  resolve(true);
-              } catch (err: any) {
-                  console.error("Restore Error:", err);
-                  alert(err.message || "Failed to restore backup.");
-                  resolve(false);
+  const restoreUserFromBackup = async (fileOrContent: File | string): Promise<boolean> => {
+      const processContent = (encryptedContent: string) => {
+          try {
+              const decrypted = decryptData(encryptedContent);
+              
+              if (!decrypted || !decrypted.metadata || !decrypted.data || !decrypted.userProfile) {
+                  throw new Error("Invalid backup data or missing profile.");
               }
-          };
-          reader.onerror = () => resolve(false);
-          reader.readAsText(file);
-      });
+
+              const { userProfile: restoredProfile, data } = decrypted;
+              
+              // Restore Profile in Encrypted Storage
+              updateProfileState(restoredProfile);
+
+              // Update Identity Map
+              const identityMap = JSON.parse(localStorage.getItem(STORAGE_KEY_IDENTITY_MAP) || '{}');
+              if (restoredProfile.mobile) identityMap[restoredProfile.mobile] = restoredProfile.id;
+              if (restoredProfile.email) identityMap[restoredProfile.email] = restoredProfile.id;
+              localStorage.setItem(STORAGE_KEY_IDENTITY_MAP, JSON.stringify(identityMap));
+              
+              // Set Current User
+              localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, restoredProfile.id);
+
+              // Restore Data State
+              if (Array.isArray(data.expenses)) setExpenses(data.expenses);
+              else setExpenses([]);
+              
+              if (Array.isArray(data.incomes)) setIncomes(data.incomes);
+              else setIncomes([]);
+              
+              if (Array.isArray(data.budgets)) setBudgets(data.budgets);
+              else setBudgets([]);
+              
+              // Persist immediately to storage keys
+              localStorage.setItem(STORAGE_KEY_EXPENSES, JSON.stringify(data.expenses || []));
+              localStorage.setItem(STORAGE_KEY_INCOMES, JSON.stringify(data.incomes || []));
+              localStorage.setItem(STORAGE_KEY_BUDGETS, JSON.stringify(data.budgets || []));
+
+              // Set App State
+              setUserProfile(restoredProfile);
+              setIsAuthenticated(true);
+              setIsOnboardingComplete(true);
+              sessionStorage.setItem(STORAGE_KEY_AUTH, 'true');
+
+              return true;
+          } catch (err: any) {
+              console.error("Restore Error:", err);
+              alert(err.message || "Failed to restore backup.");
+              return false;
+          }
+      };
+
+      if (typeof fileOrContent === 'string') {
+          return processContent(fileOrContent);
+      } else {
+          return new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                  const content = e.target?.result as string;
+                  resolve(processContent(content));
+              };
+              reader.onerror = () => resolve(false);
+              reader.readAsText(fileOrContent);
+          });
+      }
   }
 
   const loadDemoData = () => {
-    const { expenses, incomes, budgets } = getDemoData();
-    setExpenses(expenses);
-    setIncomes(incomes);
-    setBudgets(budgets);
+      const data = getDemoData();
+      setExpenses(data.expenses);
+      setIncomes(data.incomes);
+      setBudgets(data.budgets);
   }
 
   const completeSyncAuth = () => {
@@ -811,7 +857,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       addExpense, 
       deleteExpense, 
       restoreExpense,
-      addIncome,
+      addIncome, 
       deleteIncome,
       restoreIncome,
       markIncomeReceived,
@@ -852,6 +898,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       checkBiometricAvailability,
       isBiometricSupported,
       updateProfileState,
+      getLocalBackups,
+      deleteLocalBackup,
       loadDemoData
     }}>
       {children}

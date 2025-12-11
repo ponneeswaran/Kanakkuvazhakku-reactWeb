@@ -203,6 +203,10 @@ export const translations: Record<string, Record<string, string>> = {
     'email_backup_note': 'Expense backups will be sent here.',
     'email_required': 'Email is required for backups.',
     'Login with Biometrics': 'Login with Biometrics',
+    'Recent Device Backups': 'Recent Device Backups',
+    'Restore': 'Restore',
+    'restore_local_confirm': 'Restore this backup? Current data will be replaced.',
+    'delete_backup_confirm': 'Remove this backup from device history?',
 
     // OTP
     'Verification Code': 'Verification Code',
@@ -451,6 +455,10 @@ export const translations: Record<string, Record<string, string>> = {
     'email_backup_note': 'செலவு காப்புப்பிரதிகள் இங்கு அனுப்பப்படும்.',
     'email_required': 'காப்புப்பிரதிகளுக்கு மின்னஞ்சல் அவசியம்.',
     'Login with Biometrics': 'பயோமெட்ரிக் மூலம் உள்நுழைக',
+    'Recent Device Backups': 'சமீபத்திய காப்புப்பிரதிகள்',
+    'Restore': 'மீட்டெடு',
+    'restore_local_confirm': 'இந்த காப்புப்பிரதியை மீட்டெடுக்கவா?',
+    'delete_backup_confirm': 'இந்த காப்புப்பிரதியை நீக்கவா?',
 
     // OTP
     'Verification Code': 'சரிபார்ப்புக் குறியீடு',

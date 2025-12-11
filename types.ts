@@ -76,3 +76,11 @@ export interface UserProfile {
   biometricEnabled?: boolean;
   biometricCredentialId?: string; // Base64 Encoded Credential ID
 }
+
+export interface LocalBackup {
+  id: string;
+  date: string;
+  userName: string;
+  content: string; // Encrypted KBF content
+  size: number;
+}

@@ -1,10 +1,11 @@
 
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mail, ArrowRight, Smartphone, AlertCircle, Lock, ArrowLeft, CheckCircle2, Loader2, Fingerprint, User, Upload } from 'lucide-react';
+import { Mail, ArrowRight, Smartphone, AlertCircle, Lock, ArrowLeft, CheckCircle2, Loader2, Fingerprint, User, Upload, Clock, Trash2, Smartphone as SmartphoneIcon } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import OTPScreen from './OTPScreen';
 import { sendOTPEmail } from '../services/emailService';
+import { LocalBackup } from '../types';
 
 interface LoginScreenProps {
   onLoginSuccess: (identifier: string) => void;
@@ -12,7 +13,7 @@ interface LoginScreenProps {
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }) => {
-  const { login, startSignup, checkUserExists, resetPassword, t, checkBiometricAvailability, verifyBiometricLogin, restoreUserFromBackup } = useData();
+  const { login, startSignup, checkUserExists, resetPassword, t, checkBiometricAvailability, verifyBiometricLogin, restoreUserFromBackup, getLocalBackups, deleteLocalBackup } = useData();
   const [inputValue, setInputValue] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -31,7 +32,15 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }
 
   // Backup Restore State
   const [isRestoring, setIsRestoring] = useState(false);
+  const [localBackups, setLocalBackups] = useState<LocalBackup[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+      // Load local backups when in "Create Account" mode
+      if (isNewUser) {
+          setLocalBackups(getLocalBackups());
+      }
+  }, [isNewUser, getLocalBackups]);
 
   // Check biometric availability when input changes
   useEffect(() => {
@@ -202,6 +211,25 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }
         setIsRestoring(false);
         e.target.value = ''; 
     }
+  }
+
+  const handleLocalRestore = async (backup: LocalBackup) => {
+      if(!confirm(t('restore_local_confirm'))) return;
+
+      setIsRestoring(true);
+      const success = await restoreUserFromBackup(backup.content);
+      if (success) {
+          // Success
+      }
+      setIsRestoring(false);
+  }
+
+  const handleDeleteLocalBackup = (id: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if(confirm(t('delete_backup_confirm'))) {
+          deleteLocalBackup(id);
+          setLocalBackups(prev => prev.filter(b => b.id !== id));
+      }
   }
 
   // Render Forgot Input View (Mobile or Email)
@@ -376,32 +404,74 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }
             <p className="text-gray-500 dark:text-slate-400">{t('login_subtitle')}</p>
         </div>
 
-        {/* Restore Backup Option (Only for New Users/Create Account) */}
+        {/* Restore Backup Options (Only for New Users/Create Account) */}
         {isNewUser && (
-            <div className="mb-6 bg-teal-50 dark:bg-teal-900/10 border border-teal-100 dark:border-teal-800 rounded-xl p-4 flex items-center justify-between animate-fade-in">
-                <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-teal-100 dark:bg-teal-900/40 rounded-full text-teal-600 dark:text-teal-400">
-                        <Upload size={20} />
+            <div className="mb-8 space-y-3">
+                {/* 1. Import from File */}
+                <div className="bg-teal-50 dark:bg-teal-900/10 border border-teal-100 dark:border-teal-800 rounded-xl p-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-teal-100 dark:bg-teal-900/40 rounded-full text-teal-600 dark:text-teal-400">
+                            <Upload size={20} />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold text-teal-900 dark:text-teal-100">{t('Already have a backup?')}</h3>
+                            <p className="text-xs text-teal-700 dark:text-teal-300">{t('Restore Account from .kbf file')}</p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 className="text-sm font-bold text-teal-900 dark:text-teal-100">{t('Already have a backup?')}</h3>
-                        <p className="text-xs text-teal-700 dark:text-teal-300">{t('Restore Account from .kbf file')}</p>
-                    </div>
+                    <button 
+                        onClick={handleRestoreClick}
+                        disabled={isRestoring}
+                        className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center"
+                    >
+                        {isRestoring ? <Loader2 size={14} className="animate-spin" /> : t('Import')}
+                    </button>
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept=".kbf"
+                        onChange={handleFileChange}
+                    />
                 </div>
-                <button 
-                    onClick={handleRestoreClick}
-                    disabled={isRestoring}
-                    className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center"
-                >
-                    {isRestoring ? <Loader2 size={14} className="animate-spin" /> : t('Import')}
-                </button>
-                <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    accept=".kbf"
-                    onChange={handleFileChange}
-                />
+
+                {/* 2. Recent Local Backups (Created on this device browser) */}
+                {localBackups.length > 0 && (
+                    <div className="animate-fade-in">
+                        <div className="flex items-center space-x-2 mb-2 px-1">
+                            <SmartphoneIcon size={14} className="text-gray-400" />
+                            <span className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide">{t('Recent Device Backups')}</span>
+                        </div>
+                        <div className="space-y-2">
+                            {localBackups.map(backup => (
+                                <div key={backup.id} className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl p-3 flex items-center justify-between shadow-sm">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-8 h-8 bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-slate-400">
+                                            <Clock size={16} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-gray-800 dark:text-white">{new Date(backup.date).toLocaleDateString()}</p>
+                                            <p className="text-xs text-gray-400 dark:text-slate-500">{backup.userName} • {(backup.size / 1024).toFixed(1)} KB</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <button 
+                                            onClick={(e) => handleDeleteLocalBackup(backup.id, e)}
+                                            className="p-2 text-gray-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                        <button 
+                                            onClick={() => handleLocalRestore(backup)}
+                                            className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-300 text-xs font-bold rounded-lg transition-colors"
+                                        >
+                                            {t('Restore')}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         )}
 
