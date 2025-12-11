@@ -70,7 +70,7 @@ const OnboardingScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900 flex flex-col p-6 animate-fade-in transition-colors">
+    <div className="h-screen w-full bg-white dark:bg-slate-900 flex flex-col p-6 animate-fade-in transition-colors overflow-y-auto no-scrollbar">
       <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full py-10">
         <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{t('Create Your Account')}</h1>

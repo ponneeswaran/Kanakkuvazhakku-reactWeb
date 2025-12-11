@@ -113,7 +113,7 @@ const OTPScreen: React.FC<OTPScreenProps> = ({ identifier, onVerify, onBack, cor
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex flex-col p-6 animate-fade-in transition-colors">
+    <div className="h-screen w-full bg-gray-50 dark:bg-slate-900 flex flex-col p-6 animate-fade-in transition-colors overflow-y-auto no-scrollbar">
       <header className="mb-8 pt-2">
         <button 
           onClick={onBack}

@@ -11,7 +11,7 @@ const TermsScreen: React.FC<TermsScreenProps> = ({ onBack }) => {
   const { t } = useData();
   
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900 flex flex-col animate-fade-in transition-colors">
+    <div className="h-screen w-full bg-white dark:bg-slate-900 flex flex-col animate-fade-in transition-colors overflow-hidden">
       <div className="shrink-0 p-4 sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-10 border-b border-gray-100 dark:border-slate-800">
         <header className="flex items-center space-x-3">
             <button 

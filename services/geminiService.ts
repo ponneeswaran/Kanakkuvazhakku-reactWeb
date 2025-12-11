@@ -45,10 +45,12 @@ export const generateSpendingInsight = async (context: UserContext): Promise<str
 
 export const parseExpenseFromText = async (text: string): Promise<any> => {
     if (!apiKey) throw new Error("API Key missing");
+    
+    const today = new Date().toISOString().split('T')[0];
 
     const response = await ai.models.generateContent({
         model: MODEL_NAME,
-        contents: `Extract expense details from this text: "${text}". Return JSON.`,
+        contents: `Extract expense details from this text: "${text}". Today's date is ${today}. Return JSON.`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -71,9 +73,11 @@ export const parseExpenseFromText = async (text: string): Promise<any> => {
 export const parseIncomeFromText = async (text: string): Promise<any> => {
     if (!apiKey) throw new Error("API Key missing");
 
+    const today = new Date().toISOString().split('T')[0];
+
     const response = await ai.models.generateContent({
         model: MODEL_NAME,
-        contents: `Extract income details from this text: "${text}". Return JSON.`,
+        contents: `Extract income details from this text: "${text}". Today's date is ${today}. Return JSON.`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {

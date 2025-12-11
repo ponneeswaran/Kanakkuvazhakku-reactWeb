@@ -277,7 +277,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }
   // Render Forgot Input View (Mobile or Email)
   if (viewState === 'forgot_input') {
       return (
-        <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex flex-col p-6 animate-fade-in transition-colors">
+        <div className="h-screen w-full bg-gray-50 dark:bg-slate-900 flex flex-col p-6 animate-fade-in transition-colors overflow-y-auto no-scrollbar">
             <header className="mb-8 pt-2">
                 <button 
                 onClick={() => setViewState('login')}
@@ -351,7 +351,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }
   // Render Reset Password Form
   if (viewState === 'reset') {
       return (
-        <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex flex-col p-6 animate-fade-in transition-colors">
+        <div className="h-screen w-full bg-gray-50 dark:bg-slate-900 flex flex-col p-6 animate-fade-in transition-colors overflow-y-auto no-scrollbar">
             <header className="mb-8 pt-2">
                 <button 
                 onClick={() => setViewState('login')}
@@ -413,7 +413,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }
   // Render Success Screen
   if (viewState === 'success') {
       return (
-         <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex flex-col p-6 animate-fade-in transition-colors items-center justify-center">
+         <div className="h-screen w-full bg-gray-50 dark:bg-slate-900 flex flex-col p-6 animate-fade-in transition-colors items-center justify-center overflow-y-auto no-scrollbar">
              <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-lg border border-gray-100 dark:border-slate-700 text-center max-w-sm w-full">
                  <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600 dark:text-green-400">
                      <CheckCircle2 size={32} />
@@ -439,7 +439,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onShowTerms }
 
   // Render Login/Signup Screen
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex flex-col p-6 animate-fade-in transition-colors">
+    <div className="h-screen w-full bg-gray-50 dark:bg-slate-900 flex flex-col p-6 animate-fade-in transition-colors overflow-y-auto no-scrollbar">
       <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full">
         <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{isNewUser ? t('Create Your Account') : t('Welcome')}</h1>

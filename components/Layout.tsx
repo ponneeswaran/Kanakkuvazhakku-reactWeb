@@ -15,7 +15,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
   const [showAddModal, setShowAddModal] = useState(false);
 
   return (
-    <div className="h-screen w-screen bg-gray-50 dark:bg-slate-900 transition-colors overflow-hidden flex flex-col md:flex-row landscape:flex-row">
+    <div className="fixed inset-0 bg-gray-50 dark:bg-slate-900 transition-colors overflow-hidden flex flex-col md:flex-row landscape:flex-row">
       
       {/* Main Content Area - Grow to fill space */}
       <main className="flex-1 h-full w-full overflow-hidden relative order-1 md:order-1 landscape:order-1">
@@ -33,6 +33,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         md:border-t-0 md:border-l landscape:border-t-0 landscape:border-l
         z-50 pb-safe md:pb-0 landscape:pb-0
         order-2 md:order-2 landscape:order-2
+        overflow-y-auto no-scrollbar
       ">
         <div className="
           flex items-center
